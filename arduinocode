@@ -1,0 +1,123 @@
+#include <LiquidCrystal.h>
+#include <elapsedMillis.h>
+
+const int d7 = 2;
+const int d6 = 3;
+const int d5 = 4;
+const int d4 = 5;
+const int trigger = 6;
+const int en = 11;
+const int rs = 12;
+const int puff = 14;
+const int reset = 15;
+const int activePlus = 16;
+const int activeMinus = 17;
+const int dwellPlus = 18;
+const int dwellMinus = 19;
+
+// times for activity
+const int defaultActive = 2;
+const int defaultDwell = 2;
+int currentActive = 2;
+int currentDwell = 2;
+elapsedMillis timerCycle; // resettable cycle timer
+
+bool puffMode = false;
+
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+
+void setup() {
+  // set up the LCD's number of columns and rows:
+  lcd.begin(16,2);
+  Serial.begin(9600);
+  delay(100);
+  
+  // Pin setups
+  pinMode(trigger, OUTPUT);
+  pinMode(puff, INPUT_PULLUP);
+  pinMode(reset, INPUT_PULLUP);
+  pinMode(activePlus, INPUT_PULLUP);
+  pinMode(activeMinus, INPUT_PULLUP);
+  pinMode(dwellPlus, INPUT_PULLUP);
+  pinMode(dwellMinus, INPUT_PULLUP);
+  digitalWrite(trigger, LOW);
+  
+}
+void loop() {
+  //Screen management
+  lcd.setCursor(0, 0);
+  lcd.print(F("Active:"));
+  lcd.print(currentActive);
+  lcd.print(F(" "));
+  lcd.print(currentDwell);
+  
+  // puff button
+  if (digitalRead(puff) == LOW) { 
+    lcd.setCursor(0, 1);
+    lcd.print("Manual Puff");
+    digitalWrite(trigger, HIGH);
+    Serial.println("Puff Pressed");
+    delay(currentActive * 1000);
+    digitalWrite(trigger, LOW);
+    lcd.setCursor(0, 1);
+    lcd.print("           ");
+  }
+
+  //reset button
+  if (digitalRead(reset) == LOW) { 
+    lcd.setCursor(0, 1);
+    lcd.print("Reset");
+    Serial.println("Reset Pressed");
+    currentActive = defaultActive;
+    currentDwell = defaultDwell;
+    lcd.setCursor(0, 1);
+    lcd.print("     ");
+    timerCycle = 0; // reset mills timer
+    puffMode = false;
+    delay(200);
+  }
+
+  if (digitalRead(activePlus) == LOW){
+    if(currentActive < 99) {
+      currentActive += 1;
+      delay(200);
+    }
+  }
+  if (digitalRead(activeMinus) == LOW){
+    if(currentActive > 1) {
+      currentActive -= 1;
+      delay(200);
+    }
+  }
+  if (digitalRead(dwellPlus) == LOW){
+    if(currentDwell < 300) {
+      currentDwell += 1;
+      delay(200);
+    }
+  }
+   if (digitalRead(dwellMinus) == LOW){
+    if(currentDwell > 1) {
+      currentDwell = currentDwell - 1;
+      delay(200);
+    }
+  }
+  // this is broken now, if statements arent working
+  if(puffMode == false){ //solenoid not active
+    if(int(currentDwell) * 1000 - int(timerCycle) <= 0){ // dwell timer expired
+      Serial.println("Dwell timer expired");
+      puffMode = true; // time to puff air
+      timerCycle = 0; // reset mills timer
+      digitalWrite(trigger, HIGH); // trigger the air to start
+    }
+  }
+  if(puffMode == true){
+    Serial.println("puffmode true");
+    Serial.println(timerCycle);
+    if(int(currentActive) * 1000 - int(timerCycle) <= 0){
+      Serial.println("Active timer expired");
+      puffMode = false; // time to puff air
+      timerCycle = 0; // reset mills timer
+      digitalWrite(trigger, LOW); // trigger the air to start
+    }
+  }
+}
